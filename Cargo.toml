@@ -4,3 +4,4 @@ version = "0.1.0"
 authors = ["David Caldwell <david@porkrind.org>"]
 
 [dependencies]
+logwatcher = { path = "crates/logwatcher" }
