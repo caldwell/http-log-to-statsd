@@ -1,9 +1,8 @@
 [package]
-name = "greenfelt-logwatcher"
+name = "greenfelt-logwatcher-simple"
 version = "0.1.0"
 authors = ["David Caldwell <david@porkrind.org>"]
 
 [dependencies]
-logwatcher = { path = "crates/logwatcher" }
-regex = "*"
-lazy_static = "*"
+docopt = "0.6"
+rustc-serialize = "0.3"

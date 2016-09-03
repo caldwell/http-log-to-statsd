@@ -1,37 +1,75 @@
-extern crate logwatcher;
-extern crate regex;
-#[macro_use] extern crate lazy_static;
+extern crate rustc_serialize;
+extern crate docopt;
 
-use logwatcher::LogWatcher;
-use regex::Regex;
+use docopt::Docopt;
+use std::net::UdpSocket;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
+#[derive(Debug, RustcDecodable)]
+struct Options {
+    flag_v: isize,
+    flag_interval: u64,
+    flag_listen: String,
+}
+
 #[derive(Clone)]
 struct Stats {
-    status: Vec<usize>,
-    status_major: Vec<usize>,
-    verb: HashMap<String,usize>,
-    https: usize,
-    http: usize,
+    status: Vec<u64>,
+    status_major: Vec<u64>,
+    verb: HashMap<String,u64>,
+    https: u64,
+    http: u64,
+    request_bytes: u64,
+    response_bytes: u64,
+    response_time_ms: u64,
+    requests: u64,
 }
 
 fn main() {
+    let options = Options {
+        flag_v: 0,
+        flag_interval: 60,
+        flag_listen: "127.0.0.1:6666".to_string(),
+    };
+
+        let usage = format!("
+Usage:
+  glf [-h | --help] [-v...] [--interval=<interval>] [--listen=<listen>]
+
+Options:
+  -h --help                Show this screen.
+  --interval=<interval>    Accumulation period in seconds [default: {}]
+  --listen=<listen>        Address and port number to listen on [default: {}]
+", options.flag_interval, options.flag_listen);
+
+    let options: Options = Docopt::new(usage)
+        .and_then(|d| d.decode())
+        .unwrap_or_else(|e| e.exit());
+
+    if options.flag_v > 1 { println!("{:?}", options) }
+
+
     let zeros = Stats {
         status: vec![0; 1000],
         status_major: vec![0; 6],
         verb: HashMap::new(),
         https: 0,
         http: 0,
+        request_bytes: 0,
+        response_bytes: 0,
+        response_time_ms: 0,
+        requests: 0,
     };
     let stats = Arc::new(Mutex::new(zeros.clone()));
 
     let verbose = false;
-    let interval = 10;
 
+    // Dump stats to ??? every once and a while
     {
         let stats = stats.clone();
+        let interval = options.flag_interval;
         thread::spawn(move || {
             loop {
                 std::thread::sleep(std::time::Duration::new(interval, 0));
@@ -42,44 +80,37 @@ fn main() {
         });
     }
 
-    let mut log_watcher = LogWatcher::register("redacted-hardcoded-path-to/access.log".to_string()).unwrap();
-    //let mut log_watcher = LogWatcher::register("redacted-hardcoded-path-to/access.log".to_string()).unwrap();
-    log_watcher.watch(&|line| {
-        lazy_static! {
-            static ref GF_MATCHER: Regex = Regex::new(r#"(?P<client_ip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) (?P<ident>[^ ]+) (?P<user>.+) \[(?P<time>\d{2}/.../\d{4}:\d{2}:\d{2}:\d{2} [-+]?\d{4})\]  (?P<scheme>https?) "(?:(?P<verb>\w+) (?P<request>[^ ]+)(?: HTTP/(?P<http_version>[0-9.]+))?|.*?)" (?P<resp_code>\d+) (?:(?P<resp_bytes>\d+)|-) .*"#).unwrap();
-            static ref PORK_MATCHER: Regex = Regex::new(r#"(?P<client_ip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}) (?P<ident>[^ ]+) (?P<user>.+) \[(?P<time>\d{2}/.../\d{4}:\d{2}:\d{2}:\d{2} [-+]?\d{4})\] (?:(?P<scheme>\S+) )?"(?P<host>[^:]+):(?:(?P<verb>\w+) (?P<request>[^ ]+)(?: HTTP/(?P<http_version>[0-9.]+))?|.*?)" (?P<resp_code>\d+) (?:(?P<resp_bytes>\d+)|-) .*"#).unwrap();
-        }
-        if verbose { println!("{}", line) }
-        if let Some(m) = GF_MATCHER.captures(&line) {
-            if verbose { println!(" -> '{}' '{}' '{}' '{}' '{:?}' '{:?}' '{:?}' '{:?}' '{}' '{:?}'", &m["client_ip"], &m["ident"], &m["user"], &m["time"], &m.name("scheme"), &m.name("verb"), &m.name("request"), &m.name("http_version"), &m["resp_code"], &m.name("resp_bytes")) }
-            let mut s = stats.lock().unwrap();
-            let status = m["resp_code"].parse::<usize>().unwrap();
-            s.status[status] += 1;
-            s.status_major[status/100] += 1;
-            if let Some(verb) = m.name("verb") {
-                let old = *s.verb.get(verb).unwrap_or(&0);
-                s.verb.insert(verb.to_string(), old + 1);
+    // Read from webserver and accumulate stats
+    let mut socket = UdpSocket::bind(options.flag_listen.as_str()).unwrap();
+    let mut buf = [0; 512];
+    loop {
+        if let Ok((amt, src)) = socket.recv_from(&mut buf) {
+            if let Ok(line) = std::str::from_utf8(&buf[0..amt]).map(|s| s.to_string()) {
+                let fields: Vec<&str> = line.split_whitespace().collect();
+                if fields.len() == 6 {
+                    let (scheme, method, status, request_bytes, response_bytes, response_time_ms) = (fields[0], fields[1], fields[2], fields[3], fields[4], fields[5]);
+                    println!("{},{},{},{},{},{}", scheme, method, status, request_bytes, response_bytes, response_time_ms);
+
+                    let mut s = stats.lock().unwrap();
+
+                    if scheme == "https".to_string() { s.https += 1;}
+                    else                             { s.http  += 1; }
+
+                    let old = *s.verb.get(method).unwrap_or(&0);
+                        s.verb.insert(method.to_string(), old + 1);
+
+                    let status = status.parse::<usize>().unwrap_or(0);
+                    s.status[status] += 1;
+                    s.status_major[status/100] += 1;
+
+                    s.request_bytes += request_bytes.parse::<u64>().unwrap_or(0);
+                    s.response_bytes += response_bytes.parse::<u64>().unwrap_or(0);
+                    s.response_time_ms += response_time_ms.parse::<u64>().unwrap_or(0);
+                    s.requests += 1;
+                } else { println!("{}", line) }
             }
-            if m["scheme"] == "https".to_string() {
-                s.https += 1;
-            } else {
-                s.http += 1;
-            }
-            // if  let Some(_) = m.name("scheme") {
-            //     s.https += 1;
-            // } else {
-            //     s.http += 1;
-            // }
-        } else {
-            println!(" !");
         }
-//        println!("   => {:?}", *stats.lock().unwrap());
-        // IP [0-9.]+
-        // NUM [0-9]+
-        // TEST %{IP:client_ip:tag} %{NUM:num:int}
-        // SCHEME https?
-        // GF_LOG_FORMAT %{CLIENT:client_ip} %{NGUSER:ident:drop} %{NGUSER:auth:drop} \[%{HTTPDATE:ts:ts-httpd}\]  %{SCHEME:scheme:tag} "(?:%{WORD:verb:tag} %{NOTSPACE:request:drop}(?: HTTP/%{NUMBER:http_version:float})?|%{DATA})" %{NUMBER:resp_code:int} (?:%{NUMBER:resp_bytes:int}|-) .*
-    });
+    }
     println!("Goodbye, cruel world!");
 }
 
@@ -112,7 +143,8 @@ impl std::fmt::Debug for Stats {
                 something = true;
             }
         }
-        try!(write!(f, "}}, http: {}, https: {}", self.http, self.https));
+        try!(write!(f, "}}, http: {}, https: {}, request_bytes: {}, response_bytes: {}, response_time_ms: {}, requests: {}",
+                    self.http, self.https, self.request_bytes, self.response_bytes, self.response_time_ms, self.requests ));
         Ok(())
     }
 }
