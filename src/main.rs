@@ -120,7 +120,7 @@ impl std::fmt::Debug for Stats {
         let mut something = false;
         for (i,s) in self.status.iter().enumerate() {
             if *s > 0 {
-                if something { try!(write!(f, " ")) }
+                if something { try!(write!(f, ", ")) }
                 try!(write!(f, "{}: {}", i, s));
                 something = true;
             }
@@ -129,7 +129,7 @@ impl std::fmt::Debug for Stats {
         let mut something = false;
         for (i,s) in self.status_major.iter().enumerate() {
             if *s > 0 {
-                if something { try!(write!(f, " ")) }
+                if something { try!(write!(f, ", ")) }
                 try!(write!(f, "{}xx: {}", i, s));
                 something = true;
             }
@@ -138,7 +138,7 @@ impl std::fmt::Debug for Stats {
         let mut something = false;
         for (i,s) in self.verb.iter() {
             if *s > 0 {
-                if something { try!(write!(f, " ")) }
+                if something { try!(write!(f, ", ")) }
                 try!(write!(f, "{}: {}", i, s));
                 something = true;
             }
