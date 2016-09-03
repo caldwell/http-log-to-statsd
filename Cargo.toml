@@ -5,3 +5,5 @@ authors = ["David Caldwell <david@porkrind.org>"]
 
 [dependencies]
 logwatcher = { path = "crates/logwatcher" }
+regex = "*"
+lazy_static = "*"
