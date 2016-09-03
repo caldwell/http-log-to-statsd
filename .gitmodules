@@ -1,3 +1,3 @@
 [submodule "crates/logwatcher"]
 	path = crates/logwatcher
-	url = https://github.com/aravindavk/logwatcher.git
+	url = https://github.com/caldwell/logwatcher.git
