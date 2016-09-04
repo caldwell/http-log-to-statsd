@@ -1,48 +1,41 @@
 extern crate rustc_serialize;
 extern crate docopt;
+extern crate cadence;
 
 use docopt::Docopt;
+use cadence::prelude::*;
+use cadence::{StatsdClient, UdpMetricSink, DEFAULT_PORT};
 use std::net::UdpSocket;
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
-use std::thread;
 
 #[derive(Debug, RustcDecodable)]
 struct Options {
     flag_v: isize,
-    flag_interval: u64,
     flag_listen: String,
-}
-
-#[derive(Clone)]
-struct Stats {
-    status: Vec<u64>,
-    status_major: Vec<u64>,
-    verb: HashMap<String,u64>,
-    https: u64,
-    http: u64,
-    request_bytes: u64,
-    response_bytes: u64,
-    response_time_ms: u64,
-    requests: u64,
+    flag_statsd: String,
+    flag_prefix: String,
+    flag_suffix: String,
 }
 
 fn main() {
     let options = Options {
         flag_v: 0,
-        flag_interval: 60,
         flag_listen: "127.0.0.1:6666".to_string(),
+        flag_statsd: format!("127.0.0.1:{}", DEFAULT_PORT),
+        flag_prefix: "http.request".to_string(),
+        flag_suffix: "".to_string(),
     };
 
         let usage = format!("
 Usage:
-  glf [-h | --help] [-v...] [--interval=<interval>] [--listen=<listen>]
+  glf [-h | --help] [-v...] [--listen=<listen>] [--statsd=<server>] [--prefix=<prefix>] [--suffix=<suffix>]
 
 Options:
   -h --help                Show this screen.
-  --interval=<interval>    Accumulation period in seconds [default: {}]
   --listen=<listen>        Address and port number to listen on [default: {}]
-", options.flag_interval, options.flag_listen);
+  --statsd=<server>        Address and port number of statsd server [default: {}]
+  --prefix=<prefix>        Statsd prefix for metrics [default: {}]
+  --suffix=<suffix>        Statsd suffix for metrics [default: {}]
+", options.flag_listen, options.flag_statsd, options.flag_prefix, options.flag_suffix);
 
     let options: Options = Docopt::new(usage)
         .and_then(|d| d.decode())
@@ -50,101 +43,45 @@ Options:
 
     if options.flag_v > 1 { println!("{:?}", options) }
 
+    let verbose = options.flag_v;
 
-    let zeros = Stats {
-        status: vec![0; 1000],
-        status_major: vec![0; 6],
-        verb: HashMap::new(),
-        https: 0,
-        http: 0,
-        request_bytes: 0,
-        response_bytes: 0,
-        response_time_ms: 0,
-        requests: 0,
-    };
-    let stats = Arc::new(Mutex::new(zeros.clone()));
-
-    let verbose = false;
-
-    // Dump stats to ??? every once and a while
-    {
-        let stats = stats.clone();
-        let interval = options.flag_interval;
-        thread::spawn(move || {
-            loop {
-                std::thread::sleep(std::time::Duration::new(interval, 0));
-                let mut s = stats.lock().unwrap();
-                println!("   => {:?}", *s);
-                *s = zeros.clone();
-            }
-        });
-    }
+    let statsd = StatsdClient::<UdpMetricSink>::from_udp_host(options.flag_prefix.as_str(), options.flag_statsd.as_str()).unwrap();
+    let name = |name: &str| { format!("{}{}", name, options.flag_suffix) };
 
     // Read from webserver and accumulate stats
-    let mut socket = UdpSocket::bind(options.flag_listen.as_str()).unwrap();
+    let socket = UdpSocket::bind(options.flag_listen.as_str()).unwrap();
     let mut buf = [0; 512];
     loop {
-        if let Ok((amt, src)) = socket.recv_from(&mut buf) {
+        if let Ok((amt, _/*src*/)) = socket.recv_from(&mut buf) {
             if let Ok(line) = std::str::from_utf8(&buf[0..amt]).map(|s| s.to_string()) {
+                if verbose > 1 { println!("{}", line) }
+                // <190>Sep  3 15:40:50 deck nginx: http GET 200 751 498 0.042
+                let line = if line.len() > 1 && line.chars().nth(0).unwrap() == '<' { // Strip off syslog gunk, if it exists
+                    if let Some(start_byte) = line.find(": http").map(|l|l+2) {
+                        std::str::from_utf8(&line.as_bytes()[start_byte..]).unwrap_or(line.as_str()).to_string()
+                    } else { line }
+                } else { line };
                 let fields: Vec<&str> = line.split_whitespace().collect();
                 if fields.len() == 6 {
-                    let (scheme, method, status, request_bytes, response_bytes, response_time_ms) = (fields[0], fields[1], fields[2], fields[3], fields[4], fields[5]);
-                    println!("{},{},{},{},{},{}", scheme, method, status, request_bytes, response_bytes, response_time_ms);
+                    let (scheme, method, status, request_bytes, response_bytes, response_time_ms) = (fields[0], fields[1].to_lowercase(), fields[2], fields[3], fields[4], fields[5]);
+                    if verbose > 1 { println!("{},{},{},{},{},{}", scheme, method, status, request_bytes, response_bytes, response_time_ms) }
 
-                    let mut s = stats.lock().unwrap();
+                    if scheme == "https".to_string() { let _ = statsd.incr(&name("https")); }
+                    else                             { let _ = statsd.incr(&name("http")); }
 
-                    if scheme == "https".to_string() { s.https += 1;}
-                    else                             { s.http  += 1; }
+                    let _ = statsd.incr(&name(&method));
 
-                    let old = *s.verb.get(method).unwrap_or(&0);
-                        s.verb.insert(method.to_string(), old + 1);
+                    let _ = statsd.incr(&name(status));
+                    let _ = statsd.incr(&name(&format!("{}xx", status.chars().nth(0).unwrap_or('X'))));
 
-                    let status = status.parse::<usize>().unwrap_or(0);
-                    s.status[status] += 1;
-                    s.status_major[status/100] += 1;
-
-                    s.request_bytes += request_bytes.parse::<u64>().unwrap_or(0);
-                    s.response_bytes += response_bytes.parse::<u64>().unwrap_or(0);
-                    s.response_time_ms += response_time_ms.parse::<u64>().unwrap_or(0);
-                    s.requests += 1;
-                } else { println!("{}", line) }
+                    let _ = statsd.time(&name("request_bytes"),    request_bytes   .parse::<u64>().unwrap_or(0)); // looks wrong, but times get averaged, which is correct for bytes.
+                    let _ = statsd.time(&name("response_bytes"),   response_bytes  .parse::<u64>().unwrap_or(0));
+                    let _ = statsd.time(&name("response_time_ms"), if response_time_ms.contains('.') { (response_time_ms.parse::<f64>().unwrap_or(0.0) * 1000.0) as u64 } // ngingx
+                                                                   else                              { response_time_ms.parse::<u64>().unwrap_or(0) });               // apache
+                    let _ = statsd.incr(&name("requests"));
+                } else if verbose > 0 { println!("!{}", line) }
             }
         }
     }
-    println!("Goodbye, cruel world!");
 }
 
-impl std::fmt::Debug for Stats {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        try!(write!(f, "status{{"));
-        let mut something = false;
-        for (i,s) in self.status.iter().enumerate() {
-            if *s > 0 {
-                if something { try!(write!(f, ", ")) }
-                try!(write!(f, "{}: {}", i, s));
-                something = true;
-            }
-        }
-        try!(write!(f, "}}, status_major{{"));
-        let mut something = false;
-        for (i,s) in self.status_major.iter().enumerate() {
-            if *s > 0 {
-                if something { try!(write!(f, ", ")) }
-                try!(write!(f, "{}xx: {}", i, s));
-                something = true;
-            }
-        }
-        try!(write!(f, "}}, verb{{"));
-        let mut something = false;
-        for (i,s) in self.verb.iter() {
-            if *s > 0 {
-                if something { try!(write!(f, ", ")) }
-                try!(write!(f, "{}: {}", i, s));
-                something = true;
-            }
-        }
-        try!(write!(f, "}}, http: {}, https: {}, request_bytes: {}, response_bytes: {}, response_time_ms: {}, requests: {}",
-                    self.http, self.https, self.request_bytes, self.response_bytes, self.response_time_ms, self.requests ));
-        Ok(())
-    }
-}

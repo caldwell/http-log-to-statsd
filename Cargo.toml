@@ -6,3 +6,4 @@ authors = ["David Caldwell <david@porkrind.org>"]
 [dependencies]
 docopt = "0.6"
 rustc-serialize = "0.3"
+cadence = "0.8.0"
