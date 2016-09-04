@@ -1,5 +1,5 @@
 [package]
-name = "greenfelt-logwatcher-simple"
+name = "http-log-to-statsd"
 version = "0.1.0"
 authors = ["David Caldwell <david@porkrind.org>"]
 

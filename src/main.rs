@@ -27,7 +27,7 @@ fn main() {
 
         let usage = format!("
 Usage:
-  glf [-h | --help] [-v...] [--listen=<listen>] [--statsd=<server>] [--prefix=<prefix>] [--suffix=<suffix>]
+  http-log-to-statsd [-h | --help] [-v...] [--listen=<listen>] [--statsd=<server>] [--prefix=<prefix>] [--suffix=<suffix>]
 
 Options:
   -h --help                Show this screen.
