@@ -31,6 +31,7 @@ Usage:
 
 Options:
   -h --help                Show this screen.
+  -v                       Increase verbosity.
   --listen=<listen>        Address and port number to listen on [default: {}]
   --statsd=<server>        Address and port number of statsd server [default: {}]
   --prefix=<prefix>        Statsd prefix for metrics [default: {}]
