@@ -3,6 +3,10 @@ name = "http-log-to-statsd"
 version = "0.1.0"
 authors = ["David Caldwell <david@porkrind.org>"]
 
+[[bin]]
+name = "http-log-to-statsd"
+path = "http-log-to-statsd.rs"
+
 [dependencies]
 docopt = "0.6"
 rustc-serialize = "0.3"
