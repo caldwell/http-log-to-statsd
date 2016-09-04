@@ -17,14 +17,6 @@ struct Options {
 }
 
 fn main() {
-    let options = Options {
-        flag_v: 0,
-        flag_listen: "127.0.0.1:6666".to_string(),
-        flag_statsd: format!("127.0.0.1:{}", DEFAULT_PORT),
-        flag_prefix: "http.request".to_string(),
-        flag_suffix: "".to_string(),
-    };
-
         let usage = format!("
 Usage:
   http-log-to-statsd [-h | --help] [-v...] [--listen=<listen>] [--statsd=<server>] [--prefix=<prefix>] [--suffix=<suffix>]
@@ -32,11 +24,11 @@ Usage:
 Options:
   -h --help                Show this screen.
   -v                       Increase verbosity.
-  --listen=<listen>        Address and port number to listen on [default: {}]
-  --statsd=<server>        Address and port number of statsd server [default: {}]
-  --prefix=<prefix>        Statsd prefix for metrics [default: {}]
-  --suffix=<suffix>        Statsd suffix for metrics [default: {}]
-", options.flag_listen, options.flag_statsd, options.flag_prefix, options.flag_suffix);
+  --listen=<listen>        Address and port number to listen on [default: 127.0.0.1:6666]
+  --statsd=<server>        Address and port number of statsd server [default: 127.0.0.1:{}]
+  --prefix=<prefix>        Statsd prefix for metrics [default: http.request]
+  --suffix=<suffix>        Statsd suffix for metrics [default: ]
+", DEFAULT_PORT);
 
     let options: Options = Docopt::new(usage)
         .and_then(|d| d.decode())
