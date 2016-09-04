@@ -67,11 +67,8 @@ Options:
                     let (scheme, method, status, request_bytes, response_bytes, response_time_ms) = (fields[0], fields[1].to_lowercase(), fields[2], fields[3], fields[4], fields[5]);
                     if verbose > 1 { println!("{},{},{},{},{},{}", scheme, method, status, request_bytes, response_bytes, response_time_ms) }
 
-                    if scheme == "https".to_string() { let _ = statsd.incr(&name("https")); }
-                    else                             { let _ = statsd.incr(&name("http")); }
-
+                    let _ = statsd.incr(&name(&scheme));
                     let _ = statsd.incr(&name(&method));
-
                     let _ = statsd.incr(&name(status));
                     let _ = statsd.incr(&name(&format!("{}xx", status.chars().nth(0).unwrap_or('X'))));
 
