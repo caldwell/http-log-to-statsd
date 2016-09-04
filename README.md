@@ -1,5 +1,23 @@
 # http-log-to-statsd
 
+This program reads specialized custom logs from nginx/apache via UDP and
+writes the data out to a statsd server. The values passed to the statsd
+server are:
+
+- `http.request.{https,http}`: counts of requests coming in on https or http
+- `http.request.{get,post,put,head,options,etc}`: counts of http method
+- `http.request.{100-500}`: counts of each http status code
+- `http.request.{1xx,2xx,3xx,4xx,5xx}`: counts of each http status category
+- `http.request.request_bytes`: bytes in each request
+- `http.request.response_bytes`: bytes in each response
+- `http.request.request_time_ms`: time in ms for each request to complete
+- `http.request.requests`: count of requests
+
+The `http.request` prefix can by changed with the `--prefix` command line
+option. In addition, the `--suffix` options may be used to add arbitrary
+suffixes to the stat names. For instance, telgraf/influx users might want to
+add `",sometag=somevalue"` to inject custom tags.
+
 ## Configuring nginx:
 
     log_format stats '$scheme $request_method $status $request_length $body_bytes_sent $request_time';
