@@ -11,3 +11,6 @@ compile:
   post:
     - mkdir -p $CIRCLE_ARTIFACTS/bin
     - mv target/release/http-log-to-statsd $CIRCLE_ARTIFACTS/bin
+test:
+  override:
+    - cargo test
