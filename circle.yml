@@ -1,0 +1,13 @@
+machine:
+  environment:
+    PATH: ${HOME}/.cargo/bin:${PATH}
+dependencies:
+  override:
+    - curl https://sh.rustup.rs -sSf | sh -s -- -y
+    - sed -i 's/github/git-non-exist-hub/g' ~/.gitconfig # https://github.com/rust-lang/cargo/issues/3900
+compile:
+  override:
+    - cargo build --release
+  post:
+    - mkdir -p $CIRCLE_ARTIFACTS/bin
+    - mv target/release/http-log-to-statsd $CIRCLE_ARTIFACTS/bin
