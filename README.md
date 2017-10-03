@@ -19,6 +19,14 @@ field, which may be used to add arbitrary suffixes to the stat names. For
 instance, telgraf/influx users might want to add `",sometag=somevalue"` to
 inject custom tags.
 
+## Building from source:
+
+Building the code requires [Rust](https://www.rust-lang.org). To build:
+
+    $ cargo build --release
+    
+The resulting executable will be in `target/release/http-log-to-statsd`.
+
 ## Configuring nginx:
 
     log_format stats '$scheme $request_method $status $request_length $body_bytes_sent $request_time';
