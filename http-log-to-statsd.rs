@@ -97,7 +97,7 @@ impl Parser {
                              if x.len() == 2 {
                                  let (key, mut value, mut scale) = (x[0], x[1], "1");
                                  if value.contains("*") {
-                                     let x: Vec<&str> = field[1..].splitn(2, '*').collect();
+                                     let x: Vec<&str> = value.splitn(2, '*').collect();
                                      value = x[1];
                                      scale = x[0];
                                  }
@@ -142,9 +142,12 @@ mod tests {
 
     #[test]
     fn avg() {
-        let stats = parse_line("~david:42 ~david:42.0");
-        assert_eq!(stats.len(), 2);
+        let stats = parse_line("~david:42 ~david:42.0 ~david:7*6 ~david:7.0*6 ~david:7*6.0");
+        assert_eq!(stats.len(), 5);
         assert_eq!(stats[0], ::Stat::Avg("david".to_string(), 42));
         assert_eq!(stats[1], ::Stat::Avg("david".to_string(), 42));
+        assert_eq!(stats[2], ::Stat::Avg("david".to_string(), 42));
+        assert_eq!(stats[3], ::Stat::Avg("david".to_string(), 42));
+        assert_eq!(stats[4], ::Stat::Avg("david".to_string(), 42));
     }
 }
