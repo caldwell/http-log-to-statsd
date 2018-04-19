@@ -1,3 +1,5 @@
+#![feature(test)]
+
 extern crate rustc_serialize;
 extern crate docopt;
 extern crate cadence;
@@ -111,5 +113,38 @@ impl Parser {
             }
         }
         stats
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    fn parse_line(line: &str) -> Vec<::Stat> {
+        let mut p = ::Parser::new();
+        p.parse_line(line.to_string())
+    }
+
+    #[test]
+    fn incr() {
+        let stats = parse_line("+david");
+        assert_eq!(stats.len(), 1);
+        assert_eq!(stats[0], ::Stat::Incr("david".to_string()));
+    }
+
+    #[test]
+    fn incr_xx() {
+        let stats = parse_line("+501 x501 x502");
+        assert_eq!(stats.len(), 3);
+        assert_eq!(stats[0], ::Stat::Incr("501".to_string()));
+        assert_eq!(stats[1], ::Stat::Incr("5xx".to_string()));
+        assert_eq!(stats[2], ::Stat::Incr("5xx".to_string()));
+    }
+
+    #[test]
+    fn avg() {
+        let stats = parse_line("~david:42 ~david:42.0");
+        assert_eq!(stats.len(), 2);
+        assert_eq!(stats[0], ::Stat::Avg("david".to_string(), 42));
+        assert_eq!(stats[1], ::Stat::Avg("david".to_string(), 42));
     }
 }
