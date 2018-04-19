@@ -51,25 +51,34 @@ Options:
                         std::str::from_utf8(&line.as_bytes()[start_byte..]).unwrap_or(line.as_str()).to_string()
                     } else { line }
                 } else { line };
-                let fields: Vec<&str> = line.split_whitespace().collect();
-                if fields.len() >= 6 {
-                    let empty_string = ""; // seriously, rust?
-                    let (scheme, method, status, request_bytes, response_bytes, response_time_ms, suffix) = (fields[0], fields[1].to_lowercase(), fields[2], fields[3], fields[4], fields[5], fields.get(6).unwrap_or(&empty_string));
-                    if verbose > 1 { println!("{},{},{},{},{},{},{}", scheme, method, status, request_bytes, response_bytes, response_time_ms, suffix) }
 
-                    let name = |name: &str| { [name, suffix].concat() };
-
-                    let _ = statsd.incr(&name(&scheme));
-                    let _ = statsd.incr(&name(&method));
-                    let _ = statsd.incr(&name(status));
-                    let _ = statsd.incr(&name(&format!("{}xx", status.chars().nth(0).unwrap_or('X'))));
-
-                    let _ = statsd.time(&name("request_bytes"),    request_bytes   .parse::<u64>().unwrap_or(0)); // looks wrong, but times get averaged, which is correct for bytes.
-                    let _ = statsd.time(&name("response_bytes"),   response_bytes  .parse::<u64>().unwrap_or(0));
-                    let _ = statsd.time(&name("response_time_ms"), if response_time_ms.contains('.') { (response_time_ms.parse::<f64>().unwrap_or(0.0) * 1000.0) as u64 } // ngingx
-                                                                   else                              { response_time_ms.parse::<u64>().unwrap_or(0) });               // apache
-                    let _ = statsd.incr(&name("requests"));
-                } else if verbose > 0 { println!("!{}", line) }
+                let mut suffix = "";
+                let name = |name: &str, suffix: &str| { [name, suffix].concat() };
+                for field in line.split_whitespace() {
+                    if field.len() < 2 { continue }
+                    match field.chars().nth(0).unwrap_or(' ') {
+                        '+' => { /* +GET +200 */ let _ = statsd.incr(&name(&field[1..], suffix)); },
+                        'x' => { /* +GET x200 */ let _ = statsd.incr(&name(&format!("{}xx", field.chars().nth(1).unwrap_or('X')), suffix)); },
+                        '~' => { /* ~request_bytes:501   ~response_time_ms:1.52*1000 */
+                                     let x: Vec<&str> = field[1..].splitn(2, ':').collect();
+                                     if x.len() == 2 {
+                                         let (key, mut value, mut scale) = (x[0], x[1], "1");
+                                         if value.contains("*") {
+                                             let x: Vec<&str> = field[1..].splitn(2, '*').collect();
+                                             value = x[1];
+                                             scale = x[0];
+                                         }
+                                         let _ = statsd.time(&name(key, suffix),
+                                                             if value.contains('.') || scale.contains('.') { (value.parse::<f64>().unwrap_or(0.0) * scale.parse::<f64>().unwrap_or(1.0)) as u64 }
+                                                             else                                          { value.parse::<u64>().unwrap_or(0)    * scale.parse::<u64>().unwrap_or(1)  });
+                                     } else {
+                                         println!("Couldn't parse average(~) field: {}", field)
+                                     }
+                        },
+                        '>' => { suffix = &field[1..] },
+                        _ => { println!("Unknown field: {}", field) }
+                    }
+                }
             }
         }
     }
