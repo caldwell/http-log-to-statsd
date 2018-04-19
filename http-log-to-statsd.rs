@@ -150,4 +150,14 @@ mod tests {
         assert_eq!(stats[3], ::Stat::Avg("david".to_string(), 42));
         assert_eq!(stats[4], ::Stat::Avg("david".to_string(), 42));
     }
+
+    #[test]
+    fn suffix() {
+        let stats = parse_line("+david >_rules +david >_is_so_great ~david:123 +david_definitely");
+        assert_eq!(stats.len(), 4);
+        assert_eq!(stats[0], ::Stat::Incr("david".to_string()));
+        assert_eq!(stats[1], ::Stat::Incr("david_rules".to_string()));
+        assert_eq!(stats[2], ::Stat::Avg("david_is_so_great".to_string(), 123));
+        assert_eq!(stats[3], ::Stat::Incr("david_definitely_is_so_great".to_string()));
+    }
 }
