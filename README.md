@@ -1,8 +1,8 @@
 # http-log-to-statsd
 
 This program reads specialized custom logs from nginx/apache via UDP and
-writes the data out to a statsd server. The values passed to the statsd
-server are:
+writes the data out to a statsd server. If the examples in this file are
+used, The values passed to the statsd server are:
 
 - `http.request.{https,http}`: counts of requests coming in on https or http
 - `http.request.{get,post,put,head,options,etc}`: counts of http method
@@ -18,6 +18,14 @@ option. In addition, the incoming log line can specify a suffix in the 7th
 field, which may be used to add arbitrary suffixes to the stat names. For
 instance, telgraf/influx users might want to add `",sometag=somevalue"` to
 inject custom tags.
+
+The log fields are now customizable using a (very terse) log notation (see
+the 'Log Line Format' section).
+
+*Note*: The examples shown here for configuring nginx and apache match the
+stats from the older, hardcoded version of the program. If you previously
+used that version then *you will need to update your nginx/apache
+configurations to use the new log format*.
 
 ## Building from source:
 
