@@ -49,7 +49,7 @@ Options:
             if let Ok(line) = std::str::from_utf8(&buf[0..amt]).map(|s| s.to_string()) {
                 if verbose > 1 { println!("{}", line) }
 
-                let stats = parser.parse_line(line);
+                let stats = parser.parse_line(&line);
                 for stat in stats {
                     match stat {
                         Stat::Incr(name)    => { let _ = statsd.incr(&name); },
@@ -77,14 +77,14 @@ impl Parser {
     pub fn new() -> Parser {
         Parser{suffix: "".to_string()}
     }
-    pub fn parse_line(&mut self, line: String) -> Vec<Stat> {
+    pub fn parse_line(&mut self, line: &str) -> Vec<Stat> {
         let mut stats = Vec::new();
         // <190>Sep  3 15:40:50 deck nginx: http GET 200 751 498 0.042 extra.suffix
         let line = if line.len() > 1 && line.chars().nth(0).unwrap() == '<' { // Strip off syslog gunk, if it exists
             if let Some(start_byte) = line.find(": http").map(|l|l+2) {
-                std::str::from_utf8(&line.as_bytes()[start_byte..]).unwrap_or(line.as_str()).to_string()
-            } else { line }
-        } else { line };
+                std::str::from_utf8(&line.as_bytes()[start_byte..]).unwrap_or(line).to_string()
+            } else { line.to_string() }
+        } else { line.to_string() };
         self.suffix = "".to_string();
         let name = |name: &str, suffix: &str| { [name, suffix].concat() };
         for field in line.split_whitespace() {
@@ -121,7 +121,7 @@ impl Parser {
 mod tests {
     fn parse_line(line: &str) -> Vec<::Stat> {
         let mut p = ::Parser::new();
-        p.parse_line(line.to_string())
+        p.parse_line(line)
     }
 
     #[test]
