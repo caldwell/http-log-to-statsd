@@ -86,12 +86,21 @@ impl Parser {
             } else { line.to_string() }
         } else { line.to_string() };
         self.suffix = "".to_string();
-        let name = |name: &str, suffix: &str| { [name, suffix].concat() };
         for field in line.split_whitespace() {
-            if field.len() < 2 { continue }
+            match self.parse_field(field) {
+                Ok(Some(stat)) => { stats.push(stat); },
+                Ok(None) => {},
+                Err(e) => { println!("{} in {}", e, field) },
+            }
+        }
+        stats
+    }
+    fn parse_field(&mut self, field: &str) -> Result<Option<Stat>,String> {
+            let name = |name: &str, suffix: &str| { [name, suffix].concat() };
+            if field.len() < 2 { return Err("field is too short".to_string()) }
             match field.chars().nth(0).unwrap_or(' ') {
-                '+' => { /* +GET +200 */ let _ = stats.push(Stat::Incr(name(&field[1..], &self.suffix))); },
-                'x' => { /* +GET x200 */ let _ = stats.push(Stat::Incr(name(&format!("{}xx", field.chars().nth(1).unwrap_or('X')), &self.suffix))); },
+                '+' => { /* +GET +200 */ Ok(Some(Stat::Incr(name(&field[1..], &self.suffix)))) },
+                'x' => { /* +GET x200 */ Ok(Some(Stat::Incr(name(&format!("{}xx", field.chars().nth(1).unwrap_or('X')), &self.suffix)))) },
                 '~' => { /* ~request_bytes:501   ~response_time_ms:1.52*1000 */
                              let x: Vec<&str> = field[1..].splitn(2, ':').collect();
                              if x.len() == 2 {
@@ -101,18 +110,16 @@ impl Parser {
                                      value = x[1];
                                      scale = x[0];
                                  }
-                                 let _ = stats.push(Stat::Avg(name(key, &self.suffix),
+                                 Ok(Some(Stat::Avg(name(key, &self.suffix),
                                                               if value.contains('.') || scale.contains('.') { (value.parse::<f64>().unwrap_or(0.0) * scale.parse::<f64>().unwrap_or(1.0)) as u64 }
-                                                              else                                          { value.parse::<u64>().unwrap_or(0)    * scale.parse::<u64>().unwrap_or(1)  }));
+                                                              else                                          { value.parse::<u64>().unwrap_or(0)    * scale.parse::<u64>().unwrap_or(1)  })))
                              } else {
-                                 println!("Couldn't parse average(~) field: {}", field)
+                                 Err(format!("Couldn't parse average(~) field: {}", field))
                              }
                 },
-                '>' => { self.suffix = field[1..].to_string() },
-                _ => { println!("Unknown field: {}", field) }
+                '>' => { self.suffix = field[1..].to_string(); Ok(None) },
+                _ => { Err(format!("Unknown field: {}", field)) }
             }
-        }
-        stats
     }
 }
 
