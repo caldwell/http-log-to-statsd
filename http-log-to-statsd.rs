@@ -160,4 +160,15 @@ mod tests {
         assert_eq!(stats[2], ::Stat::Avg("david_is_so_great".to_string(), 123));
         assert_eq!(stats[3], ::Stat::Incr("david_definitely_is_so_great".to_string()));
     }
+
+    #[test]
+    fn parse_state() {
+        let mut p = ::Parser::new();
+        let stats = p.parse_line(">_is_great +david");
+        assert_eq!(stats.len(), 1);
+        assert_eq!(stats[0], ::Stat::Incr("david_is_great".to_string()));
+        let stats = p.parse_line("+david");
+        assert_eq!(stats.len(), 1);
+        assert_eq!(stats[0], ::Stat::Incr("david".to_string()));
+    }
 }
