@@ -123,6 +123,34 @@ field (or the end of the line).
 Example: `>.example.com` will append `.example.com` to all metrics
 processed after this field.
 
+### Conditional Fields
+
+Conditional Fields start with `?` and act like primitive 'if'
+statements. There are 3 parts to the field, each separated by a `;`. The
+first part is the predicate, the second is the 'if case' and the third is an
+optional 'else case'.
+
+The predicate is composed of a left value, an operator, and a right value
+(in that order). The currently supported operators are `<` and `>` for
+less-than and greater-than, respectively. If either value has a `.` then
+both values are parsed and compared as floats, otherwise they are parsed as
+64 bit integers.
+
+If the predicate is true then the 'if case' is evaluated. If it is false and
+an 'else case' exists, the 'else case' is evaluated. The 'if' and 'else'
+cases can be any field (other than another Conditional Field).
+
+Examples:
+
+`?-1<0;+key` will increment the `key` statsd bucket (since -1 is less than 0).
+
+`?1<0;+key` will do nothing (since 1 is not less than 0 and there is no else
+case)
+
+`?1.0<2;>_fast;>_slow +request` will increment the `request_fast` statsd
+bucket (since 1 is less than 2 the `>_fast` field is evaluated, which sets
+the suffix to `_fast`).
+
 ## Usage:
 
       http-log-to-statsd [-h | --help] [-v...] [--listen=<listen>] [--statsd=<server>] [--prefix=<prefix>]
