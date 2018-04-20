@@ -119,6 +119,36 @@ impl Parser {
                          }
             },
             '>' => { self.suffix = field[1..].to_string(); Ok(None) },
+            '?' => {
+                let x: Vec<&str> = field[1..].splitn(3, ';').collect();
+                if x.len() != 2 && x.len() != 3 { return Err(format!("'?' should have 2 or 3 args and not {}", x.len())) }
+                let (pred, ifcase, mut elsecase) = (x[0], x[1], if x.len() == 3 {x[2]} else {""});
+                if let Some(op_index) = pred.find(|c| c=='<' || c=='>') {
+                    let (l,op_r) = pred.split_at(op_index);
+                    let (op, r) = (op_r.chars().nth(0).unwrap(), op_r.get(1..).unwrap());
+                    let val = if l.contains('.') || r.contains('.') {
+                        match (l.parse::<f64>(), r.parse::<f64>(), op) {
+                            (Ok(l), Ok(r), '<') => Ok(l < r),
+                            (Ok(l), Ok(r), '>') => Ok(l > r),
+                            (Err(_),_,     _) => { Err(format!("Couldn't parse '{}' as float", l)) }
+                            (_,     Err(_),_) => { Err(format!("Couldn't parse '{}' as float", r)) }
+                            (_,_,_) => panic!("Can't happen: {}", op)
+                        }
+                    } else {
+                        match (l.parse::<i64>(), r.parse::<i64>(), op) {
+                            (Ok(l), Ok(r), '<') => Ok(l < r),
+                            (Ok(l), Ok(r), '>') => Ok(l > r),
+                            (Err(_),_,     _) => { Err(format!("Couldn't parse '{}' as integer", l)) }
+                            (_,     Err(_),_) => { Err(format!("Couldn't parse '{}' as integer", r)) }
+                            (_,_,_) => panic!("Can't happen: {}", op)
+                        }
+                    };
+                    if val? { self.parse_field(ifcase).map_err(|e| format!("{} in if case", e)) }
+                    else    { self.parse_field(elsecase).map_err(|e| format!("{} in else case", e)) }
+                } else {
+                    Err(format!("Couldn't find operator in predicate '{}'", pred))
+                }
+            },
             _ => { Err(format!("Unknown field: {}", field)) }
         }
     }
@@ -178,5 +208,15 @@ mod tests {
         let stats = p.parse_line("+david");
         assert_eq!(stats.len(), 1);
         assert_eq!(stats[0], ::Stat::Incr("david".to_string()));
+    }
+
+    #[test]
+    fn if_then_else() {
+        let stats = parse_line("?0<1;+a ?0>1;+b ?7.2<7.3;+c;+d ?6.9>7;+e;+f ?-1<0;>_x;>_y ?-3.14>-4;~sandwich:10*5.0;~lemonade:13*69.2 ?< ?3< ?<3 ?1<0 ?1<0;; ?1<0;;x ?x<y;nope");
+        assert_eq!(stats.len(), 4);
+        assert_eq!(stats[0], ::Stat::Incr("a".to_string()));
+        assert_eq!(stats[1], ::Stat::Incr("c".to_string()));
+        assert_eq!(stats[2], ::Stat::Incr("f".to_string()));
+        assert_eq!(stats[3], ::Stat::Avg("sandwich_x".to_string(), 50));
     }
 }
