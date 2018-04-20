@@ -97,7 +97,8 @@ impl Parser {
     }
     fn parse_field(&mut self, field: &str) -> Result<Option<Stat>,String> {
         let name = |name: &str, suffix: &str| { [name, suffix].concat() };
-        if field.len() < 2 { return Err("field is too short".to_string()) }
+        if field.len() == 0 { return Ok(None) }
+        if field.len() < 2 { return Err(format!("field is too short ({})", field.len())) }
         match field.chars().nth(0).unwrap_or(' ') {
             '+' => { /* +GET +200 */ Ok(Some(Stat::Incr(name(&field[1..], &self.suffix)))) },
             'x' => { /* +GET x200 */ Ok(Some(Stat::Incr(name(&format!("{}xx", field.chars().nth(1).unwrap_or('X')), &self.suffix)))) },
