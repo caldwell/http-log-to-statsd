@@ -1,3 +1,6 @@
+// Copyright © 2016-2018 David Caldwell <david@porkrind.org>
+// Licensed under the GPL v3 or newer. See the LICENSE file for details.
+
 extern crate rustc_serialize;
 extern crate docopt;
 extern crate cadence;
