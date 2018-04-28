@@ -128,32 +128,11 @@ impl Parser {
                     let (l,op_r) = pred.split_at(op_index);
                     let (op, r) = (op_r.chars().nth(0).unwrap(), op_r.get(1..).unwrap());
                     let val = if l.contains('\'') || r.contains('\'') {
-                        match (parse_string(l), parse_string(r), op) {
-                            (Ok(l), Ok(r), '<') => Ok(l < r),
-                            (Ok(l), Ok(r), '>') => Ok(l > r),
-                            (Ok(l), Ok(r), '=') => Ok(l == r),
-                            (Err(_),_,     _) => { Err(format!("Couldn't parse '{}' as string", l)) }
-                            (_,     Err(_),_) => { Err(format!("Couldn't parse '{}' as string", r)) }
-                            (_,_,_) => panic!("Can't happen: {}", op)
-                        }
+                        compare(parse_string(l), parse_string(r), op, l,r,"string")
                     } else if l.contains('.') || r.contains('.') {
-                        match (l.parse::<f64>(), r.parse::<f64>(), op) {
-                            (Ok(l), Ok(r), '<') => Ok(l < r),
-                            (Ok(l), Ok(r), '>') => Ok(l > r),
-                            (Ok(l), Ok(r), '=') => Ok(l == r),
-                            (Err(_),_,     _) => { Err(format!("Couldn't parse '{}' as float", l)) }
-                            (_,     Err(_),_) => { Err(format!("Couldn't parse '{}' as float", r)) }
-                            (_,_,_) => panic!("Can't happen: {}", op)
-                        }
+                        compare(l.parse::<f64>(), r.parse::<f64>(), op, l,r,"float")
                     } else {
-                        match (l.parse::<i64>(), r.parse::<i64>(), op) {
-                            (Ok(l), Ok(r), '<') => Ok(l < r),
-                            (Ok(l), Ok(r), '>') => Ok(l > r),
-                            (Ok(l), Ok(r), '=') => Ok(l == r),
-                            (Err(_),_,     _) => { Err(format!("Couldn't parse '{}' as integer", l)) }
-                            (_,     Err(_),_) => { Err(format!("Couldn't parse '{}' as integer", r)) }
-                            (_,_,_) => panic!("Can't happen: {}", op)
-                        }
+                        compare(l.parse::<i64>(), r.parse::<i64>(), op, l,r,"integer")
                     };
                     if val? { self.parse_field(ifcase).map_err(|e| format!("{} in if case", e)) }
                     else    { self.parse_field(elsecase).map_err(|e| format!("{} in else case", e)) }
@@ -163,6 +142,17 @@ impl Parser {
             },
             _ => { Err(format!("Unknown field: {}", field)) }
         }
+    }
+}
+
+fn compare<T: PartialOrd, E>(l: Result<T,E>, r: Result<T,E>, op: char, ls: &str, rs: &str, kind: &str) -> Result<bool,String> {
+    match (l, r, op) {
+        (Ok(l), Ok(r), '<') => Ok(l < r),
+        (Ok(l), Ok(r), '>') => Ok(l > r),
+        (Ok(l), Ok(r), '=') => Ok(l == r),
+        (Err(_),_,     _) => { Err(format!("Couldn't parse '{}' as {}", ls, kind)) }
+        (_,     Err(_),_) => { Err(format!("Couldn't parse '{}' as {}", rs, kind)) }
+        (_,_,_) => panic!("Can't happen: {}", op)
     }
 }
 
