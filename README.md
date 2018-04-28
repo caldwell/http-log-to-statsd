@@ -140,13 +140,21 @@ optional 'else case'.
 
 The predicate is composed of a left value, an operator, and a right value
 (in that order). The currently supported operators are `<`,`>`, and `=` for
-less-than, greater-than, and equality, respectively. If either value has a `.` then
+less-than, greater-than, and equality, respectively. If either value
+contains single-quotes then both values are parsed and compared as strings
+(see Predicate String Quoting Rules, below). Otherwise, If either value has a `.` then
 both values are parsed and compared as floats, otherwise they are parsed as
 64 bit integers.
 
 If the predicate is true then the 'if case' is evaluated. If it is false and
 an 'else case' exists, the 'else case' is evaluated. The 'if' and 'else'
 cases can be any field (other than another Conditional Field).
+
+#### Predicate String Quoting Rules
+
+Strings values in conditional field predicates must be surrounded by single
+quotes and may not contain whitespace, `'`, `<`, `=`, or `>`
+characters. This is mostly due to the really cheesy parser currently in use.
 
 Examples:
 
@@ -157,6 +165,9 @@ case)
 
 `?500=500;+error` will increment the `error` statsd bucket (since 500 is
 equal to 500).
+
+`?'/api'='/api';+api` will increment the `api` statsd bucket (since the
+strings are equal).
 
 `?1.0<2;>_fast;>_slow +request` will increment the `request_fast` statsd
 bucket (since 1 is less than 2 the `>_fast` field is evaluated, which sets

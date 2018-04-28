@@ -127,7 +127,16 @@ impl Parser {
                 if let Some(op_index) = pred.find(|c| c=='<' || c=='>' || c=='=') {
                     let (l,op_r) = pred.split_at(op_index);
                     let (op, r) = (op_r.chars().nth(0).unwrap(), op_r.get(1..).unwrap());
-                    let val = if l.contains('.') || r.contains('.') {
+                    let val = if l.contains('\'') || r.contains('\'') {
+                        match (parse_string(l), parse_string(r), op) {
+                            (Ok(l), Ok(r), '<') => Ok(l < r),
+                            (Ok(l), Ok(r), '>') => Ok(l > r),
+                            (Ok(l), Ok(r), '=') => Ok(l == r),
+                            (Err(_),_,     _) => { Err(format!("Couldn't parse '{}' as string", l)) }
+                            (_,     Err(_),_) => { Err(format!("Couldn't parse '{}' as string", r)) }
+                            (_,_,_) => panic!("Can't happen: {}", op)
+                        }
+                    } else if l.contains('.') || r.contains('.') {
                         match (l.parse::<f64>(), r.parse::<f64>(), op) {
                             (Ok(l), Ok(r), '<') => Ok(l < r),
                             (Ok(l), Ok(r), '>') => Ok(l > r),
@@ -157,6 +166,13 @@ impl Parser {
     }
 }
 
+fn parse_string(s: &str) -> Result<&str, String> {
+    if s.starts_with("'") && s.ends_with("'") {
+        Ok(&s[1..s.len()-1])
+    } else {
+        Err(format!("Bad string: {}", s))
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -230,5 +246,20 @@ mod tests {
         assert_eq!(stats[0], ::Stat::Incr("b".to_string()));
         assert_eq!(stats[1], ::Stat::Incr("c".to_string()));
         assert_eq!(stats[2], ::Stat::Incr("d".to_string()));
+    }
+
+    #[test]
+    fn if_strings() {
+        let stats = parse_line("?'0'='1';+a ?'1'='1';+b ?'1.0'='1';+c ?'1.1'='1.100';+d ?'this'='that';+e ?'this'='this';+f");
+        assert_eq!(stats.len(), 2);
+        assert_eq!(stats[0], ::Stat::Incr("b".to_string()));
+        assert_eq!(stats[1], ::Stat::Incr("f".to_string()));
+        let stats = parse_line("?bad'=bad';+g ?'bad='bad;+h ?'good='='good=';+i ?'str'>0;+j");
+        assert_eq!(stats.len(), 0);
+        //assert_eq!(stats[0], ::Stat::Incr("i".to_string())); // FIXME: write a better parser!!
+        let stats = parse_line("?'a'<'A';+j ?'David'<'david';+david ?'c'>'a';+rules ?'d'>'e';+nope");
+        assert_eq!(stats.len(), 2);
+        assert_eq!(stats[0], ::Stat::Incr("david".to_string()));
+        assert_eq!(stats[1], ::Stat::Incr("rules".to_string()));
     }
 }
