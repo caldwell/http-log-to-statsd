@@ -124,13 +124,14 @@ impl Parser {
                 let x: Vec<&str> = field[1..].splitn(3, ';').collect();
                 if x.len() != 2 && x.len() != 3 { return Err(format!("'?' should have 2 or 3 args and not {}", x.len())) }
                 let (pred, ifcase, mut elsecase) = (x[0], x[1], if x.len() == 3 {x[2]} else {""});
-                if let Some(op_index) = pred.find(|c| c=='<' || c=='>') {
+                if let Some(op_index) = pred.find(|c| c=='<' || c=='>' || c=='=') {
                     let (l,op_r) = pred.split_at(op_index);
                     let (op, r) = (op_r.chars().nth(0).unwrap(), op_r.get(1..).unwrap());
                     let val = if l.contains('.') || r.contains('.') {
                         match (l.parse::<f64>(), r.parse::<f64>(), op) {
                             (Ok(l), Ok(r), '<') => Ok(l < r),
                             (Ok(l), Ok(r), '>') => Ok(l > r),
+                            (Ok(l), Ok(r), '=') => Ok(l == r),
                             (Err(_),_,     _) => { Err(format!("Couldn't parse '{}' as float", l)) }
                             (_,     Err(_),_) => { Err(format!("Couldn't parse '{}' as float", r)) }
                             (_,_,_) => panic!("Can't happen: {}", op)
@@ -139,6 +140,7 @@ impl Parser {
                         match (l.parse::<i64>(), r.parse::<i64>(), op) {
                             (Ok(l), Ok(r), '<') => Ok(l < r),
                             (Ok(l), Ok(r), '>') => Ok(l > r),
+                            (Ok(l), Ok(r), '=') => Ok(l == r),
                             (Err(_),_,     _) => { Err(format!("Couldn't parse '{}' as integer", l)) }
                             (_,     Err(_),_) => { Err(format!("Couldn't parse '{}' as integer", r)) }
                             (_,_,_) => panic!("Can't happen: {}", op)
@@ -219,5 +221,14 @@ mod tests {
         assert_eq!(stats[1], ::Stat::Incr("c".to_string()));
         assert_eq!(stats[2], ::Stat::Incr("f".to_string()));
         assert_eq!(stats[3], ::Stat::Avg("sandwich_x".to_string(), 50));
+    }
+
+    #[test]
+    fn if_numeric_equal() {
+        let stats = parse_line("?0=1;+a ?1=1;+b ?1.0=1;+c ?1.1=1.100;+d ?2.5=2.0;+e");
+        assert_eq!(stats.len(), 3);
+        assert_eq!(stats[0], ::Stat::Incr("b".to_string()));
+        assert_eq!(stats[1], ::Stat::Incr("c".to_string()));
+        assert_eq!(stats[2], ::Stat::Incr("d".to_string()));
     }
 }

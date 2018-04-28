@@ -139,8 +139,8 @@ first part is the predicate, the second is the 'if case' and the third is an
 optional 'else case'.
 
 The predicate is composed of a left value, an operator, and a right value
-(in that order). The currently supported operators are `<` and `>` for
-less-than and greater-than, respectively. If either value has a `.` then
+(in that order). The currently supported operators are `<`,`>`, and `=` for
+less-than, greater-than, and equality, respectively. If either value has a `.` then
 both values are parsed and compared as floats, otherwise they are parsed as
 64 bit integers.
 
@@ -154,6 +154,9 @@ Examples:
 
 `?1<0;+key` will do nothing (since 1 is not less than 0 and there is no else
 case)
+
+`?500=500;+error` will increment the `error` statsd bucket (since 500 is
+equal to 500).
 
 `?1.0<2;>_fast;>_slow +request` will increment the `request_fast` statsd
 bucket (since 1 is less than 2 the `>_fast` field is evaluated, which sets
