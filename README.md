@@ -80,10 +80,29 @@ Example:
 
 ### Counting Fields
 
-Counting fields start with a `+`. The remainder of the field is used as the
-statsd "bucket" for count.
+Counting fields start with a `+` and come in one of 3 forms:
 
-Example: `+GET` will increment the "GET" statsd bucket.
+    +key
+    +key:value
+    +key:value*scale
+
+`key` is the statsd bucket to add to. It may not contain `:`. `value` is
+optional (assumed 1 when not specified) and is the number that the statsd
+bucket should be incremented by. `value` may either be a float or an integer
+(but floats are truncated to integers after scaling) and positive or
+negative. `scale` is optional (assumed to be 1 when not given) and is
+multiplied to `value` before being given to statsd.
+
+Examples:
+
+`+GET` will increment the "GET" statsd bucket by 1.
+
+`+by_ten:10` will increment the "by_ten" statsd bucket by 10.
+
+`+my_bucket:-1` will decrement the "my_bucket" statsd bucket by 1.
+
+`+total_time_ms:0.002*1000` will increment the "total_time_ms" statsd bucket
+by 2.
 
 ### Status Bucket Fields
 

@@ -53,8 +53,9 @@ Options:
                 let stats = parser.parse_line(&line);
                 for stat in stats {
                     match stat {
-                        Stat::Incr(name)    => { let _ = statsd.incr(&name); },
-                        Stat::Avg(name,val) => { let _ = statsd.time(&name, val); },
+                        Stat::Incr(name)      => { let _ = statsd.incr(&name); },
+                        Stat::Count(name,val) => { let _ = statsd.count(&name, val); },
+                        Stat::Avg(name,val)   => { let _ = statsd.time(&name, val); },
                     }
                 }
             }
@@ -66,6 +67,7 @@ Options:
 #[derive(Debug, PartialEq)]
 pub enum Stat {
     Incr(String),
+    Count(String,i64),
     Avg(String,u64),
 }
 
@@ -101,7 +103,12 @@ impl Parser {
         if field.len() == 0 { return Ok(None) }
         if field.len() < 2 { return Err(format!("field is too short ({})", field.len())) }
         match field.chars().nth(0).unwrap_or(' ') {
-            '+' => { /* +GET +200 */ Ok(Some(Stat::Incr(name(&field[1..], &self.suffix)))) },
+            '+' => { /* +GET +200 */ //Ok(Some(Stat::Incr(name(&field[1..], &self.suffix))))
+                         match parse_optional_scaled_num(&field[1..])? {
+                             (key, Some(value)) => Ok(Some(Stat::Count(name(key, &self.suffix), value as i64))),
+                             (_,   None)        => Ok(Some(Stat::Incr(name(&field[1..], &self.suffix)))),
+                         }
+            },
             'x' => { /* +GET x200 */ Ok(Some(Stat::Incr(name(&format!("{}xx", field.chars().nth(1).unwrap_or('X')), &self.suffix)))) },
             '~' => { /* ~request_bytes:501   ~response_time_ms:1.52*1000 */
                          match parse_optional_scaled_num(&field[1..])? {
@@ -187,6 +194,20 @@ mod tests {
         let stats = parse_line("+david");
         assert_eq!(stats.len(), 1);
         assert_eq!(stats[0],stat_incr("david"));
+    }
+
+    #[test]
+    fn count() {
+        let stats = parse_line("+david:4 +rules:1.25*6.4 +oh:15.6 +yes:8.0*2 +he:14*1.643 +does:6*7 +dec:-1 +dec:-0.07*1000");
+        assert_eq!(stats.len(), 8);
+        assert_eq!(stats[0], stat_count("david", 4));
+        assert_eq!(stats[1], stat_count("rules", 8));
+        assert_eq!(stats[2], stat_count("oh",   15));
+        assert_eq!(stats[3], stat_count("yes",  16));
+        assert_eq!(stats[4], stat_count("he",   23));
+        assert_eq!(stats[5], stat_count("does", 42));
+        assert_eq!(stats[6], stat_count("dec",  -1));
+        assert_eq!(stats[7], stat_count("dec", -70));
     }
 
     #[test]
