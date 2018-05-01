@@ -170,42 +170,45 @@ mod tests {
         let mut p = ::Parser::new();
         p.parse_line(line)
     }
+    fn stat_incr(key: &str)            -> ::Stat { ::Stat::Incr(key.to_string()) }
+    fn stat_count(key: &str, val: i64) -> ::Stat { ::Stat::Count(key.to_string(), val) }
+    fn stat_avg(key: &str, val: u64)   -> ::Stat { ::Stat::Avg(key.to_string(), val) }
 
     #[test]
     fn incr() {
         let stats = parse_line("+david");
         assert_eq!(stats.len(), 1);
-        assert_eq!(stats[0], ::Stat::Incr("david".to_string()));
+        assert_eq!(stats[0],stat_incr("david"));
     }
 
     #[test]
     fn incr_xx() {
         let stats = parse_line("+501 x501 x502");
         assert_eq!(stats.len(), 3);
-        assert_eq!(stats[0], ::Stat::Incr("501".to_string()));
-        assert_eq!(stats[1], ::Stat::Incr("5xx".to_string()));
-        assert_eq!(stats[2], ::Stat::Incr("5xx".to_string()));
+        assert_eq!(stats[0],stat_incr("501"));
+        assert_eq!(stats[1],stat_incr("5xx"));
+        assert_eq!(stats[2],stat_incr("5xx"));
     }
 
     #[test]
     fn avg() {
         let stats = parse_line("~david:42 ~david:42.0 ~david:7*6 ~david:7.0*6 ~david:7*6.0");
         assert_eq!(stats.len(), 5);
-        assert_eq!(stats[0], ::Stat::Avg("david".to_string(), 42));
-        assert_eq!(stats[1], ::Stat::Avg("david".to_string(), 42));
-        assert_eq!(stats[2], ::Stat::Avg("david".to_string(), 42));
-        assert_eq!(stats[3], ::Stat::Avg("david".to_string(), 42));
-        assert_eq!(stats[4], ::Stat::Avg("david".to_string(), 42));
+        assert_eq!(stats[0], stat_avg("david", 42));
+        assert_eq!(stats[1], stat_avg("david", 42));
+        assert_eq!(stats[2], stat_avg("david", 42));
+        assert_eq!(stats[3], stat_avg("david", 42));
+        assert_eq!(stats[4], stat_avg("david", 42));
     }
 
     #[test]
     fn suffix() {
         let stats = parse_line("+david >_rules +david >_is_so_great ~david:123 +david_definitely");
         assert_eq!(stats.len(), 4);
-        assert_eq!(stats[0], ::Stat::Incr("david".to_string()));
-        assert_eq!(stats[1], ::Stat::Incr("david_rules".to_string()));
-        assert_eq!(stats[2], ::Stat::Avg("david_is_so_great".to_string(), 123));
-        assert_eq!(stats[3], ::Stat::Incr("david_definitely_is_so_great".to_string()));
+        assert_eq!(stats[0],stat_incr("david"));
+        assert_eq!(stats[1],stat_incr("david_rules"));
+        assert_eq!(stats[2], stat_avg("david_is_so_great", 123));
+        assert_eq!(stats[3],stat_incr("david_definitely_is_so_great"));
     }
 
     #[test]
@@ -213,43 +216,43 @@ mod tests {
         let mut p = ::Parser::new();
         let stats = p.parse_line(">_is_great +david");
         assert_eq!(stats.len(), 1);
-        assert_eq!(stats[0], ::Stat::Incr("david_is_great".to_string()));
+        assert_eq!(stats[0],stat_incr("david_is_great"));
         let stats = p.parse_line("+david");
         assert_eq!(stats.len(), 1);
-        assert_eq!(stats[0], ::Stat::Incr("david".to_string()));
+        assert_eq!(stats[0],stat_incr("david"));
     }
 
     #[test]
     fn if_then_else() {
         let stats = parse_line("?0<1;+a ?0>1;+b ?7.2<7.3;+c;+d ?6.9>7;+e;+f ?-1<0;>_x;>_y ?-3.14>-4;~sandwich:10*5.0;~lemonade:13*69.2 ?< ?3< ?<3 ?1<0 ?1<0;; ?1<0;;x ?x<y;nope");
         assert_eq!(stats.len(), 4);
-        assert_eq!(stats[0], ::Stat::Incr("a".to_string()));
-        assert_eq!(stats[1], ::Stat::Incr("c".to_string()));
-        assert_eq!(stats[2], ::Stat::Incr("f".to_string()));
-        assert_eq!(stats[3], ::Stat::Avg("sandwich_x".to_string(), 50));
+        assert_eq!(stats[0],stat_incr("a"));
+        assert_eq!(stats[1],stat_incr("c"));
+        assert_eq!(stats[2],stat_incr("f"));
+        assert_eq!(stats[3], stat_avg("sandwich_x", 50));
     }
 
     #[test]
     fn if_numeric_equal() {
         let stats = parse_line("?0=1;+a ?1=1;+b ?1.0=1;+c ?1.1=1.100;+d ?2.5=2.0;+e");
         assert_eq!(stats.len(), 3);
-        assert_eq!(stats[0], ::Stat::Incr("b".to_string()));
-        assert_eq!(stats[1], ::Stat::Incr("c".to_string()));
-        assert_eq!(stats[2], ::Stat::Incr("d".to_string()));
+        assert_eq!(stats[0],stat_incr("b"));
+        assert_eq!(stats[1],stat_incr("c"));
+        assert_eq!(stats[2],stat_incr("d"));
     }
 
     #[test]
     fn if_strings() {
         let stats = parse_line("?'0'='1';+a ?'1'='1';+b ?'1.0'='1';+c ?'1.1'='1.100';+d ?'this'='that';+e ?'this'='this';+f");
         assert_eq!(stats.len(), 2);
-        assert_eq!(stats[0], ::Stat::Incr("b".to_string()));
-        assert_eq!(stats[1], ::Stat::Incr("f".to_string()));
+        assert_eq!(stats[0],stat_incr("b"));
+        assert_eq!(stats[1],stat_incr("f"));
         let stats = parse_line("?bad'=bad';+g ?'bad='bad;+h ?'good='='good=';+i ?'str'>0;+j");
         assert_eq!(stats.len(), 0);
-        //assert_eq!(stats[0], ::Stat::Incr("i".to_string())); // FIXME: write a better parser!!
+        //assert_eq!(stats[0],stat_incr("i")); // FIXME: write a better parser!!
         let stats = parse_line("?'a'<'A';+j ?'David'<'david';+david ?'c'>'a';+rules ?'d'>'e';+nope");
         assert_eq!(stats.len(), 2);
-        assert_eq!(stats[0], ::Stat::Incr("david".to_string()));
-        assert_eq!(stats[1], ::Stat::Incr("rules".to_string()));
+        assert_eq!(stats[0],stat_incr("david"));
+        assert_eq!(stats[1],stat_incr("rules"));
     }
 }
