@@ -104,19 +104,9 @@ impl Parser {
             '+' => { /* +GET +200 */ Ok(Some(Stat::Incr(name(&field[1..], &self.suffix)))) },
             'x' => { /* +GET x200 */ Ok(Some(Stat::Incr(name(&format!("{}xx", field.chars().nth(1).unwrap_or('X')), &self.suffix)))) },
             '~' => { /* ~request_bytes:501   ~response_time_ms:1.52*1000 */
-                         let x: Vec<&str> = field[1..].splitn(2, ':').collect();
-                         if x.len() == 2 {
-                             let (key, mut value, mut scale) = (x[0], x[1], "1");
-                             if value.contains("*") {
-                                 let x: Vec<&str> = value.splitn(2, '*').collect();
-                                 value = x[1];
-                                 scale = x[0];
-                             }
-                             Ok(Some(Stat::Avg(name(key, &self.suffix),
-                                               if value.contains('.') || scale.contains('.') { (value.parse::<f64>().unwrap_or(0.0) * scale.parse::<f64>().unwrap_or(1.0)) as u64 }
-                                               else                                          { value.parse::<u64>().unwrap_or(0)    * scale.parse::<u64>().unwrap_or(1)  })))
-                         } else {
-                             Err(format!("Couldn't parse average(~) field: {}", field))
+                         match parse_optional_scaled_num(&field[1..])? {
+                             (key, Some(value)) => Ok(Some(Stat::Avg(name(key, &self.suffix), value as u64))),
+                             (_,   None)        => Err(format!("Average field is missing value: {}", field)),
                          }
             },
             '>' => { self.suffix = field[1..].to_string(); Ok(None) },
@@ -161,6 +151,24 @@ fn parse_string(s: &str) -> Result<&str, String> {
         Ok(&s[1..s.len()-1])
     } else {
         Err(format!("Bad string: {}", s))
+    }
+}
+
+fn parse_optional_scaled_num(s: &str) -> Result<(&str,Option<i64>),String> { // xxx:1.5*2 -> Ok("xxx",Some(3))
+    let x: Vec<&str> = s.splitn(2, ':').collect();
+    if x.len() == 1 {
+        Ok((x[0], None))
+    } else if x.len() == 2 {
+        let (key, mut value, mut scale) = (x[0], x[1], "1");
+        if value.contains("*") {
+            let x: Vec<&str> = value.splitn(2, '*').collect();
+            value = x[1];
+            scale = x[0];
+        }
+        Ok((key, Some(if value.contains('.') || scale.contains('.') { (value.parse::<f64>().unwrap_or(0.0) * scale.parse::<f64>().unwrap_or(1.0)) as i64 }
+                      else                                          { value.parse::<i64>().unwrap_or(0)    * scale.parse::<i64>().unwrap_or(1)  })))
+    } else {
+        Err(format!("Couldn't parse field: {}", s))
     }
 }
 
