@@ -102,10 +102,10 @@ Averaging Fields come in one of 2 forms:
     ~key:value*scale
 
 `key` may not contain `:`. `value` may either be a float or an integer (but
-floats are truncated to integers after scaling). `value` is multiplied by
-`scale` before being given to statsd and is assumed to be 1 when not
-given. `scale` is most useful for nginx request_time metrics which are given
-in fractional seconds.
+floats are truncated to integers after scaling). `scale` is optional
+(assumed to be 1 when not given) and is multiplied to `value` before being
+given to statsd. `scale` is most useful for nginx request_time metrics which
+are given in fractional seconds.
 
 Statsd calls these "Timing metrics" but since they are just averaged it
 doesn't really help to think of them as times. Byte counts, for instance,
