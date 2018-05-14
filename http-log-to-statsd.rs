@@ -53,9 +53,10 @@ Options:
                 let stats = parser.parse_line(&line);
                 for stat in stats {
                     match stat {
-                        Stat::Incr(name)      => { let _ = statsd.incr(&name); },
-                        Stat::Count(name,val) => { let _ = statsd.count(&name, val); },
-                        Stat::Avg(name,val)   => { let _ = statsd.time(&name, val); },
+                        Ok(Stat::Incr(name))      => { let _ = statsd.incr(&name); },
+                        Ok(Stat::Count(name,val)) => { let _ = statsd.count(&name, val); },
+                        Ok(Stat::Avg(name,val))   => { let _ = statsd.time(&name, val); },
+                        Err(e)                    => { println!("{}", e); },
                     }
                 }
             }
@@ -64,7 +65,7 @@ Options:
 }
 
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Stat {
     Incr(String),
     Count(String,i64),
@@ -80,7 +81,7 @@ impl Parser {
     pub fn new() -> Parser {
         Parser{suffix: "".to_string()}
     }
-    pub fn parse_line(&mut self, line: &str) -> Vec<Stat> {
+    pub fn parse_line(&mut self, line: &str) -> Vec<Result<Stat,String>> {
         let mut stats = Vec::new();
         // <190>Sep  3 15:40:50 deck nginx: http GET 200 751 498 0.042 extra.suffix
         let line = if line.len() > 1 && line.chars().nth(0).unwrap() == '<' { // Strip off syslog gunk, if it exists
@@ -91,9 +92,9 @@ impl Parser {
         self.suffix = "".to_string();
         for field in line.split_whitespace() {
             match self.parse_field(field) {
-                Ok(Some(stat)) => { stats.push(stat); },
+                Ok(Some(stat)) => { stats.push(Ok(stat)); },
                 Ok(None) => {},
-                Err(e) => { println!("{} in {}", e, field) },
+                Err(e) => { stats.push(Err(format!("{} in {}", e, field))); },
             }
         }
         stats
@@ -181,9 +182,12 @@ fn parse_optional_scaled_num(s: &str) -> Result<(&str,Option<i64>),String> { // 
 
 #[cfg(test)]
 mod tests {
-    fn parse_line(line: &str) -> Vec<::Stat> {
+    fn parse_line_with_errors(line: &str) -> Vec<Result<::Stat,String>> {
         let mut p = ::Parser::new();
         p.parse_line(line)
+    }
+    fn parse_line(line: &str) -> Vec<::Stat> {
+        parse_line_with_errors(line).iter().filter_map(|s| s.clone().ok()).collect()
     }
     fn stat_incr(key: &str)            -> ::Stat { ::Stat::Incr(key.to_string()) }
     fn stat_count(key: &str, val: i64) -> ::Stat { ::Stat::Count(key.to_string(), val) }
@@ -245,10 +249,10 @@ mod tests {
         let mut p = ::Parser::new();
         let stats = p.parse_line(">_is_great +david");
         assert_eq!(stats.len(), 1);
-        assert_eq!(stats[0],stat_incr("david_is_great"));
+        assert_eq!(stats[0],Ok(stat_incr("david_is_great")));
         let stats = p.parse_line("+david");
         assert_eq!(stats.len(), 1);
-        assert_eq!(stats[0],stat_incr("david"));
+        assert_eq!(stats[0],Ok(stat_incr("david")));
     }
 
     #[test]
