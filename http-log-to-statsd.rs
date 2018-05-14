@@ -85,7 +85,7 @@ impl Parser {
         let mut stats = Vec::new();
         // <190>Sep  3 15:40:50 deck nginx: http GET 200 751 498 0.042 extra.suffix
         let line = if line.len() > 1 && line.chars().nth(0).unwrap() == '<' { // Strip off syslog gunk, if it exists
-            if let Some(start_byte) = line.find(": http").map(|l|l+2) {
+            if let Some(start_byte) = line.find(": ").map(|l|l+2) {
                 std::str::from_utf8(&line.as_bytes()[start_byte..]).unwrap_or(line).to_string()
             } else { line.to_string() }
         } else { line.to_string() };
@@ -287,5 +287,12 @@ mod tests {
         assert_eq!(stats.len(), 2);
         assert_eq!(stats[0],stat_incr("david"));
         assert_eq!(stats[1],stat_incr("rules"));
+    }
+
+    #[test]
+    fn syslog_gunk() {
+        let stats = parse_line_with_errors("<190>May 14 17:18:46 tve-streaming-origin-17-e1c-08 nginx: +syslog");
+        assert_eq!(stats.len(), 1);
+        assert_eq!(stats[0],Ok(stat_incr("syslog")));
     }
 }
