@@ -65,7 +65,7 @@ Options:
 }
 
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq)]
 pub enum Stat {
     Incr(String),
     Count(String,i64),
@@ -187,7 +187,7 @@ mod tests {
         p.parse_line(line)
     }
     fn parse_line(line: &str) -> Vec<::Stat> {
-        parse_line_with_errors(line).iter().filter_map(|s| s.clone().ok()).collect()
+        parse_line_with_errors(line).into_iter().filter_map(|s| s.ok()).collect()
     }
     fn stat_incr(key: &str)            -> ::Stat { ::Stat::Incr(key.to_string()) }
     fn stat_count(key: &str, val: i64) -> ::Stat { ::Stat::Count(key.to_string(), val) }
