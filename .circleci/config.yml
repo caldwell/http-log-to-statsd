@@ -16,7 +16,7 @@ jobs:
             curl https://sh.rustup.rs -sSf | sh -s -- -y
             rustup target add x86_64-unknown-linux-musl
             sed -i 's/github/git-non-exist-hub/g' ~/.gitconfig # https://github.com/rust-lang/cargo/issues/3900
-            cargo update  
+            cargo update
 
       - run:
           name: test
@@ -26,8 +26,5 @@ jobs:
           name: compile
           command: cargo build --target=x86_64-unknown-linux-musl --release
 
-      - run:
-          name: post
-          command: |
-            mkdir -p $CIRCLE_ARTIFACTS/bin
-            mv target/x86_64-unknown-linux-musl/release/http-log-to-statsd $CIRCLE_ARTIFACTS/bin
+      - store_artifacts:
+            path: target/x86_64-unknown-linux-musl/release/http-log-to-statsd
