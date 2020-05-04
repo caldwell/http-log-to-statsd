@@ -4,9 +4,6 @@ jobs:
     machine: true
 
     steps:
-      - add_ssh_keys:
-          fingerprints:
-            - "ec:b6:57:e7:40:4c:8e:78:22:ee:99:de:9f:d1:a2:3b"
       - checkout
 
       - run:
@@ -19,6 +16,7 @@ jobs:
             curl https://sh.rustup.rs -sSf | sh -s -- -y
             rustup target add x86_64-unknown-linux-musl
             sed -i 's/github/git-non-exist-hub/g' ~/.gitconfig # https://github.com/rust-lang/cargo/issues/3900
+            cargo update  
 
       - run:
           name: test
