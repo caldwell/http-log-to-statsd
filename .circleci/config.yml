@@ -4,7 +4,11 @@ jobs:
     machine: true
 
     steps:
+      - add_ssh_keys:
+          fingerprints:
+            - "ec:b6:57:e7:40:4c:8e:78:22:ee:99:de:9f:d1:a2:3b"
       - checkout
+
       - run:
           name: environment
           command: echo 'export PATH=${HOME}/.cargo/bin:${PATH}' >> $BASH_ENV
