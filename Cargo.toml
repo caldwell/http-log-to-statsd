@@ -2,12 +2,13 @@
 name = "http-log-to-statsd"
 version = "0.1.0"
 authors = ["David Caldwell <david@porkrind.org>"]
+edition = "2021"
 
 [[bin]]
 name = "http-log-to-statsd"
 path = "http-log-to-statsd.rs"
 
 [dependencies]
-docopt = "0.6"
-rustc-serialize = "0.3"
+docopt = "1"
+serde = "1"
 cadence = "0.8.0"

@@ -1,16 +1,13 @@
 // Copyright © 2016-2018 David Caldwell <david@porkrind.org>
 // Licensed under the GPL v3 or newer. See the LICENSE file for details.
 
-extern crate rustc_serialize;
-extern crate docopt;
-extern crate cadence;
-
 use docopt::Docopt;
+use serde::Deserialize;
 use cadence::prelude::*;
 use cadence::{StatsdClient, UdpMetricSink, DEFAULT_PORT};
 use std::net::UdpSocket;
 
-#[derive(Debug, RustcDecodable)]
+#[derive(Debug, Deserialize)]
 struct Options {
     flag_v: isize,
     flag_listen: String,
@@ -32,7 +29,7 @@ Options:
 ", DEFAULT_PORT);
 
     let options: Options = Docopt::new(usage)
-        .and_then(|d| d.decode())
+        .and_then(|d| d.deserialize())
         .unwrap_or_else(|e| e.exit());
 
     if options.flag_v > 1 { println!("{:?}", options) }
@@ -182,16 +179,17 @@ fn parse_optional_scaled_num(s: &str) -> Result<(&str,Option<i64>),String> { // 
 
 #[cfg(test)]
 mod tests {
-    fn parse_line_with_errors(line: &str) -> Vec<Result<::Stat,String>> {
-        let mut p = ::Parser::new();
+    use super::*;
+    fn parse_line_with_errors(line: &str) -> Vec<Result<Stat,String>> {
+        let mut p = Parser::new();
         p.parse_line(line)
     }
-    fn parse_line(line: &str) -> Vec<::Stat> {
+    fn parse_line(line: &str) -> Vec<Stat> {
         parse_line_with_errors(line).into_iter().filter_map(|s| s.ok()).collect()
     }
-    fn stat_incr(key: &str)            -> ::Stat { ::Stat::Incr(key.to_string()) }
-    fn stat_count(key: &str, val: i64) -> ::Stat { ::Stat::Count(key.to_string(), val) }
-    fn stat_avg(key: &str, val: u64)   -> ::Stat { ::Stat::Avg(key.to_string(), val) }
+    fn stat_incr(key: &str)            -> Stat { Stat::Incr(key.to_string()) }
+    fn stat_count(key: &str, val: i64) -> Stat { Stat::Count(key.to_string(), val) }
+    fn stat_avg(key: &str, val: u64)   -> Stat { Stat::Avg(key.to_string(), val) }
 
     #[test]
     fn incr() {
@@ -246,7 +244,7 @@ mod tests {
 
     #[test]
     fn parse_state() {
-        let mut p = ::Parser::new();
+        let mut p = Parser::new();
         let stats = p.parse_line(">_is_great +david");
         assert_eq!(stats.len(), 1);
         assert_eq!(stats[0],Ok(stat_incr("david_is_great")));
