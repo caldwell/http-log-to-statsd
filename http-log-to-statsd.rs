@@ -118,7 +118,7 @@ impl Parser {
             '?' => {
                 let x: Vec<&str> = field[1..].splitn(3, ';').collect();
                 if x.len() != 2 && x.len() != 3 { return Err(format!("'?' should have 2 or 3 args and not {}", x.len())) }
-                let (pred, ifcase, mut elsecase) = (x[0], x[1], if x.len() == 3 {x[2]} else {""});
+                let (pred, ifcase, elsecase) = (x[0], x[1], if x.len() == 3 {x[2]} else {""});
                 if let Some(op_index) = pred.find(|c| c=='<' || c=='>' || c=='=') {
                     let (l,op_r) = pred.split_at(op_index);
                     let (op, r) = (op_r.chars().nth(0).unwrap(), op_r.get(1..).unwrap());
